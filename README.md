@@ -10,10 +10,6 @@ A tool that randomly generates an item from Old School RuneScape's collection lo
 - Data is sourced directly from the OSRS Wiki
 - Clean, simple interface
 
-## Screenshots
-
-![OSRS Collection Log Randomizer](https://i.imgur.com/example.png) *(Replace with an actual screenshot)*
-
 ## Setup and Installation
 
 1. Clone this repository:
