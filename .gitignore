@@ -4,6 +4,9 @@
 cache/
 item_cache/
 
+# Collection log data
+collection_log_data.json
+
 # Python artifacts
 __pycache__/
 *.py[cod]

@@ -4,9 +4,35 @@ import json
 import os
 import random
 from bs4 import BeautifulSoup
+from urllib.parse import urlparse, parse_qs
 
 # Cache file to avoid repeated scraping
 CACHE_FILE = "collection_log_data.json"
+
+def extract_item_id_from_url(url):
+    """
+    Try to extract an item ID from a wiki URL.
+    Some wiki pages include item IDs in their links or image URLs.
+    """
+    # Check if the URL has a query parameter that might contain the item ID
+    parsed_url = urlparse(url)
+    query_params = parse_qs(parsed_url.query)
+    
+    # Try common query parameters that might contain IDs
+    id_params = ['id', 'itemid', 'item_id']
+    for param in id_params:
+        if param in query_params and query_params[param][0].isdigit():
+            return int(query_params[param][0])
+    
+    # Try to extract from the image filename if it's an image URL
+    if url.endswith(('.png', '.gif', '.jpg')):
+        # Some image URLs include the item ID in the filename
+        match = re.search(r'_?(\d{4,})\.', url)
+        if match:
+            return int(match.group(1))
+    
+    # If we can't find an ID, return None
+    return None
 
 def scrape_collection_log():
     """Scrape collection log data from the OSRS Wiki"""
@@ -82,6 +108,8 @@ def scrape_collection_log():
                     
                     # Find the main link for this item (typically the last non-image link in the cell)
                     main_link = None
+                    img_link = None
+                    
                     for link in links:
                         href = link.get('href', '')
                         title = link.get('title', '')
@@ -93,6 +121,8 @@ def scrape_collection_log():
                         # If this link has no img tag as direct child, it's likely the text link
                         if not link.find('img', recursive=False):
                             main_link = link
+                        else:
+                            img_link = link
                     
                     # If we found a main link, process it
                     if main_link:
@@ -106,6 +136,18 @@ def scrape_collection_log():
                         if img_tag and img_tag.get('src'):
                             img_url = f"https://oldschool.runescape.wiki{img_tag.get('src')}"
                         
+                        # Try to extract item ID
+                        item_id = None
+                        
+                        # Try different ways to get the item ID
+                        # 1. From the main link URL
+                        if href:
+                            item_id = extract_item_id_from_url(href)
+                        
+                        # 2. From the image URL if we couldn't get it from the main link
+                        if item_id is None and img_url:
+                            item_id = extract_item_id_from_url(img_url)
+                        
                         # Create item object
                         item = {
                             "name": title,
@@ -114,6 +156,10 @@ def scrape_collection_log():
                             "category": category_name,
                             "subcategory": current_subcategory
                         }
+                        
+                        # Add item ID if we found one
+                        if item_id is not None:
+                            item["id"] = item_id
                         
                         # Add to collection log
                         collection_log[category_name][current_subcategory].append(item)
@@ -190,6 +236,24 @@ def get_random_collection_log_item(include_duplicates=False):
         if data["unique_items"]:
             return random.choice(data["unique_items"])
         return None
+
+def get_item_by_id(item_id):
+    """
+    Get an item by its ID
+    
+    Args:
+        item_id: The ID of the item to find
+        
+    Returns:
+        The item dictionary if found, None otherwise
+    """
+    data = scrape_collection_log()
+    
+    for item in data["unique_items"]:
+        if "id" in item and item["id"] == item_id:
+            return item
+    
+    return None
 
 if __name__ == "__main__":
     # Get a random item from the unique items list (default, equal probability)
